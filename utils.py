@@ -2,6 +2,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import datetime, os, pickle, pytz
+from langchain.tools import tool
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
@@ -26,8 +27,8 @@ if not creds or not creds.valid:
 
 service = build('calendar', 'v3', credentials=creds)
 
-class CalendarTool:
-#########crewai-0.1.32
+class CalendarTools:
+    # @tool("List calendar events")
     def list_events(service, start_date=None, end_date=None, summary=None, location=None, event_id = None):
         """
         List events from Google Calendar based on optional parameters.
@@ -67,7 +68,7 @@ class CalendarTool:
 
         return events
 
-
+    # @tool("Create new calendar event")
     def create_event(service, event_summary : str, event_location : str, start_time : str, end_time : str, email_reminder_minutes : int, popup_reminder_minutes : int) -> str:
         # Call the Calendar API 
         """Create a Calendar event based on the Args passed
@@ -106,9 +107,10 @@ class CalendarTool:
         event = service.events().insert(calendarId='primary', body=event).execute()
         print('Event created: %s' % (event.get('htmlLink')))
         event_id = event.get('id')
-        event = CalendarTool.list_events(service = service, event_id=event_id)
+        event = CalendarTools.list_events(service = service, event_id=event_id)
         return event[0]['iCalUID']
-
+    
+    # @tool("Modify calendar event by ID")
     def modify_event(service : str, event_id : str, event_summary : str, event_location : str, start_time : str, end_time : str, state : int) -> str:
         """
         Does not change the event_id, Modifies/updates an event in the Google Calendar
@@ -158,8 +160,11 @@ class CalendarTool:
 
         updated_event = service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
         print('Event updated: %s' % (updated_event.get('htmlLink')))
-        return updated_event.get('id')
-
+        updated_event_id = event.get('id')
+        event = CalendarTools.list_events(service = service, event_id=updated_event_id)
+        return event
+    
+    # @tool("Delete calendar event")
     def delete_event(service : str, event_id : str) -> None :
         """
         Deletes an event from the Google Calendar
@@ -170,6 +175,7 @@ class CalendarTool:
         service.events().delete(calendarId='primary', eventId=event_id).execute()
         print('Deleted event with id: %s' % event_id)
 
+    # @tool("Get busy time on a particular date")
     def get_busy_time(service : str, date : str) -> None:
         """
         Gets the busy time of the user on a particular date.
